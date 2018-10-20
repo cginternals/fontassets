@@ -1,0 +1,24 @@
+{
+  "name": "openll-asset-server",
+  "version": "0.0.1",
+  "description": "Server for the OpenLL Asset Generator",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bwasty/openll-asset-server"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node ./src/server.ts",
+    "start": "nodemon ./dist/server.js",
+    "prod": "npm run build && npm run start"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@types/express": "^4.16.0",
+    "body-parser": "^1.18.3",
+    "express": "^4.16.4",
+    "nodemon": "^1.18.4",
+    "ts-node": "^7.0.1",
+    "typescript": "^3.1.3"
+  }
+}
