@@ -38,7 +38,16 @@ interface AssetGeneratorParams {
      */
     dynamicrange: [number, number]; // default = [-30,20]
     /** Generate a font file in the FNT format */
-    fnt?: boolean,
+    fnt?: boolean;
+
+    [key:string]: any,
+}
+
+function cliParam(params: AssetGeneratorParams, key: string, transform?: (val: any) => string) {
+    let val = params[key];
+    if (val === undefined) { return '' }
+    val = transform ? transform(val) : val;
+    return `--${key} ${params[key]}`
 }
 
 class App {
@@ -61,7 +70,7 @@ class App {
             res.send('hello world')
         });
 
-        this.app.get('/api/fnt', [
+        this.app.get('/api/sdf', [
             query('distfield').isIn(['deadrec', 'parabola', 'none']).optional(),
             query('packing').isIn(['maxrects', 'shelf']).optional(),
             oneOf([
@@ -81,7 +90,7 @@ class App {
             // TODO: test/custom validator?
             query('dynamicrange').isArray().optional(),
             query('fnt').isBoolean().optional(),
-        ], (req, res) => {
+        ], (req: any, res: any) => {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
               return res.status(400).json({ errors: errors.array() });
@@ -102,7 +111,8 @@ class App {
 
             // TODO!: call llassetgen-cmd
             // - mktemp -> hashed params...
-            shell.exec(`./llassetgen-cmd --preset ${params.preset} --fontname ${params.fontname} --fnt`, (code, stdout, stderr) => {
+            // TODO!: handle distfield null....
+            shell.exec(`./llassetgen-cmd --preset ${params.preset} --fontname ${params.fontname} --fnt --distfield ${ params.distfield}`, (code, stdout, stderr) => {
                 if (code !== 0) {
                     // TODO!!: return 400...
                     console.log(stdout, stderr)
@@ -110,7 +120,13 @@ class App {
             })
 
             const extension = params.fnt ? 'fnt' : 'png'
-            res.sendFile('output/atlas.' + extension, { root: process.cwd() })
+            const options: any = {
+                root: process.cwd(),
+            }
+            if (params.fnt) {
+                options.headers = {'Content-Type': 'text/plain'}
+            }
+            res.sendFile('output/atlas.' + extension, options)
         })
 
         this.app.get('/api/atlas', (req, res) => {
