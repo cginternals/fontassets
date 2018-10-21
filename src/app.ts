@@ -1,13 +1,13 @@
 import * as express from "express";
 import * as bodyParser from "body-parser";
-import { query, validationResult } from "express-validator/check";
+import { query, oneOf, validationResult, param } from "express-validator/check";
 import { matchedData } from 'express-validator/filter';
 import * as shell from "shelljs";
 
 // Derived from CLI usage string
 interface AssetGeneratorParams {
     /** Apply a distance transform algorithm to the atlas. If none is chosen, no distance transform will be applied */
-    distfield?: 'deadrec' | 'parabola';
+    distfield?: 'deadrec' | 'parabola' | 'none';
     /** Use a different packing algorithm. 'maxrects' is more space-efficient, 'shelf' is faster */
     packing?: 'maxrects' | 'shelf', // default: shelf
     /** Add the specified glyphs to the atlas */
@@ -62,23 +62,53 @@ class App {
         });
 
         this.app.get('/api/fnt', [
-            query('fontname').isString()
-            // TODO!: validate all
+            query('distfield').isIn(['deadrec', 'parabola', 'none']).optional(),
+            query('packing').isIn(['maxrects', 'shelf']).optional(),
+            oneOf([
+                query('glyph').isString(),
+                query('preset').isIn(['ascii', 'preset20180319']),
+                //TODO!:custom - check is number?
+                query('charcode').isArray(),
+            ], 'one of preset, glyph, charcode required'),
+            query('fontsize').isNumeric().optional(),
+            oneOf([
+                query('fontname').isString(),
+                query('fontpath').isString(),
+            ], 'either fontname or fontpath required'),
+            query('padding').isNumeric().optional(),
+            query('downsampling').isNumeric().optional(),
+            query('dsalgo').isIn(['average', 'center', 'min']).optional(),
+            // TODO: test/custom validator?
+            query('dynamicrange').isArray().optional(),
+            query('fnt').isBoolean().optional(),
         ], (req, res) => {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
               return res.status(400).json({ errors: errors.array() });
             }
 
-            const queryData = matchedData(req, { locations: ['query'] });
-            console.log(queryData);
-            // TODO!: fill defaults
+            const params = matchedData(req, { locations: ['query'] }) as AssetGeneratorParams;
+
+            // diffferent default than CLI
+            params.distfield = params.distfield === 'none' ? undefined : 'parabola';
+
+            // convert non-string types
+            params.charcode = params.charcode && params.charcode.map((c: any) => parseInt(c, 10))
+            params.fontsize = params.fontsize && parseInt(params.fontsize as any, 10)
+            params.padding = params.padding && parseInt(params.padding as any, 10)
+            params.downsampling = params.downsampling && params.downsampling && parseInt(params.downsampling as any, 10)
+            params.dynamicrange = params.dynamicrange && params.dynamicrange.map((c: any) => parseInt(c, 10)) as [number, number]
+            params.fnt = !!params.fnt
+
+            console.log(params);
 
             // TODO!: call llassetgen-cmd
             // - mktemp -> hashed params...
             const ls = shell.exec('ls')
 
             res.send('hello fnt' + ls)
+
+            // TODO: send fnt file
             // res.sendFile
         })
 
