@@ -70,10 +70,56 @@ class App {
     private routes(): void {
         this.app.get('/', (req, res) => {
             res.send(`
+
                 <div style="font-family: sans-serif">
-                    OpenLL asset server. Example API calls: <br>
-                    <a href="/api/sdf?fontname=Arial&preset=ascii">/api/sdf?fontname=Arial&preset=ascii</a> (font atlas as png)<br>
-                    <a href="/api/sdf?fontname=Arial&preset=ascii&fnt=1">/api/sdf?fontname=Arial&preset=ascii&fnt=1</a> (fnt file)
+                    <h4>OpenLL asset server</h4>
+                    Example API calls: <br>
+                    <a href="/api/sdf?fontname=Arial&preset=ascii&padding=20">/api/sdf?fontname=Arial&preset=ascii</a> (PNG)<br>
+                    <a href="/api/sdf?fontname=Arial&preset=ascii&padding=20&fnt=1">/api/sdf?fontname=Arial&preset=ascii&fnt=1</a> (FNT)
+                    <br><br>
+                    Available parameters (<pre style="display: inline">llassetgen-cmd atlas --help</pre>):<br>
+                    (use the long parameter name as query parameter)<br>
+                    <i>NOTE: fontpath, glyph, charcode, dynamicrange are not yet supported/tested.</i>
+                    <pre>
+    -d,--distfield TEXT in {deadrec,parabola}
+        Apply a distance transform algorithm to the atlas. If none is chosen, no distancetransform will be applied
+
+    -k,--packing TEXT in {maxrects,shelf}, default = shelf
+        Use a different packing algorithm. 'maxrects' is more space-efficient, 'shelf' isfaster
+
+    -g,--glyph TEXT
+        Add the specified glyphs to the atlas
+
+    --preset TEXT
+        Specify a prepared preset of characters, e.g. ascii or preset20180319
+
+    -c,--charcode UINT ...
+        Add glyphs to the atlas by specifying their character codes, separated by spaces
+
+    -s,--fontsize UINT, default = 128
+        Specify the font size in pixels
+
+    -f,--fontname TEXT
+        Use the font with the specified name
+
+    --fontpath TEXT
+        Use the font file at the specified path
+
+    -p,--padding UINT
+        Add padding to each glyph
+
+    -w,--downsampling UINT
+        Downsample the atlas by this factor.
+
+    --dsalgo TEXT in {average,center,min}, default = center
+        Use a different downsampling algorithm
+
+    -r,--dynamicrange INT x 2, default = [-30,20] Requires: -d,--distfield
+        Takes two values, BLACK and WHITE. A lower black value will make the distance fields wider; a lower white value will make the distance fields brighter. In most cases, theblack value should be lower than the white value. However, swapping the black and white value will invert the colors of the atlas
+
+    --fnt
+        Generate a font file in the FNT format
+                    </pre>
                 </div>`)
         });
 
@@ -131,7 +177,9 @@ class App {
             args += cliParam(params, 'dynamicrange'); // TODO!: format??
 
             // TODO!: work in temp dir & delete afterwards
-            shell.exec(`./llassetgen-cmd ${args}`, (code, stdout, stderr) => {
+            // TODO!!: local vs docker cli path...
+            shell.cd('/')
+            shell.exec(`./llassetgen-cmd atlas "output/atlas.png" ${args} --fnt`, (code, stdout, stderr) => {
                 if (code !== 0) {
                     // TODO!!: return 400...
                     console.log(stdout, stderr)
