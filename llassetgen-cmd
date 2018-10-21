@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mkdir -p output
+docker run -t --rm -v "$(pwd)/output:/output" \
+    llassetgen-cmd ./llassetgen-cmd atlas "output/atlas.png" "${@}"

@@ -100,16 +100,17 @@ class App {
             params.dynamicrange = params.dynamicrange && params.dynamicrange.map((c: any) => parseInt(c, 10)) as [number, number]
             params.fnt = !!params.fnt
 
-            console.log(params);
-
             // TODO!: call llassetgen-cmd
             // - mktemp -> hashed params...
-            const ls = shell.exec('ls')
+            shell.exec(`./llassetgen-cmd --preset ${params.preset} --fontname ${params.fontname} --fnt`, (code, stdout, stderr) => {
+                if (code !== 0) {
+                    // TODO!!: return 400...
+                    console.log(stdout, stderr)
+                }
+            })
 
-            res.send('hello fnt' + ls)
-
-            // TODO: send fnt file
-            // res.sendFile
+            const extension = params.fnt ? 'fnt' : 'png'
+            res.sendFile('output/atlas.' + extension, { root: process.cwd() })
         })
 
         this.app.get('/api/atlas', (req, res) => {
