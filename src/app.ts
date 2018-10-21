@@ -1,7 +1,8 @@
 import * as express from "express";
+import * as compression from "compression";
 import * as bodyParser from "body-parser";
 import { query, oneOf, validationResult, param } from "express-validator/check";
-import { matchedData } from 'express-validator/filter';
+import { matchedData } from "express-validator/filter";
 import * as shell from "shelljs";
 
 // Derived from CLI usage string
@@ -47,7 +48,7 @@ function cliParam(params: AssetGeneratorParams, key: string, transform?: (val: a
     let val = params[key];
     if (val === undefined) { return '' }
     val = transform ? transform(val) : val;
-    return `--${key} ${params[key]}`
+    return `--${key} ${params[key]} `
 }
 
 class App {
@@ -63,11 +64,17 @@ class App {
     private config(): void {
         //support application/x-www-form-urlencoded post data
         this.app.use(bodyParser.urlencoded({ extended: false }));
+        this.app.use(compression())
     }
 
     private routes(): void {
         this.app.get('/', (req, res) => {
-            res.send('hello world')
+            res.send(`
+                <div style="font-family: sans-serif">
+                    OpenLL asset server. Example API calls: <br>
+                    <a href="/api/sdf?fontname=Arial&preset=ascii">/api/sdf?fontname=Arial&preset=ascii</a> (font atlas as png)<br>
+                    <a href="/api/sdf?fontname=Arial&preset=ascii&fnt=1">/api/sdf?fontname=Arial&preset=ascii&fnt=1</a> (fnt file)
+                </div>`)
         });
 
         this.app.get('/api/sdf', [
@@ -109,28 +116,41 @@ class App {
             params.dynamicrange = params.dynamicrange && params.dynamicrange.map((c: any) => parseInt(c, 10)) as [number, number]
             params.fnt = !!params.fnt
 
-            // TODO!: call llassetgen-cmd
-            // - mktemp -> hashed params...
-            // TODO!: handle distfield null....
-            shell.exec(`./llassetgen-cmd --preset ${params.preset} --fontname ${params.fontname} --fnt --distfield ${ params.distfield}`, (code, stdout, stderr) => {
+            let args = '';
+            args += cliParam(params, 'distfield');
+            args += cliParam(params, 'packing');
+            args += cliParam(params, 'glyph'); // TODO!: multiple glyphs??
+            args += cliParam(params, 'preset');
+            args += cliParam(params, 'charcode'); // TODO!: multiple codes??
+            args += cliParam(params, 'fontsize');
+            args += cliParam(params, 'fontname');
+            args += cliParam(params, 'fontpath');
+            args += cliParam(params, 'padding');
+            args += cliParam(params, 'downsampling');
+            args += cliParam(params, 'dsalgo');
+            args += cliParam(params, 'dynamicrange'); // TODO!: format??
+
+            // TODO!: work in temp dir & delete afterwards
+            shell.exec(`./llassetgen-cmd ${args}`, (code, stdout, stderr) => {
                 if (code !== 0) {
                     // TODO!!: return 400...
                     console.log(stdout, stderr)
                 }
-            })
 
-            const extension = params.fnt ? 'fnt' : 'png'
-            const options: any = {
-                root: process.cwd(),
-            }
-            if (params.fnt) {
-                options.headers = {'Content-Type': 'text/plain'}
-            }
-            res.sendFile('output/atlas.' + extension, options)
+                const extension = params.fnt ? 'fnt' : 'png'
+                const options: any = {
+                    root: process.cwd(),
+                }
+                if (params.fnt) {
+                    // TODO!: gzip...(static gzip?)
+                    options.headers = {'Content-Type': 'text/plain'}
+                }
+                res.sendFile('output/atlas.' + extension, options)
+            })
         })
 
-        this.app.get('/api/atlas', (req, res) => {
-
+        this.app.get('/api/available_fonts', (req, res) => {
+            // TODO
         })
     }
 
