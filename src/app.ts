@@ -48,7 +48,7 @@ function cliParam(params: AssetGeneratorParams, key: string, transform?: (val: a
     let val = params[key];
     if (val === undefined) { return '' }
     val = transform ? transform(val) : val;
-    return `--${key} ${params[key]} `
+    return `--${key} "${params[key]}" `
 }
 
 class App {
