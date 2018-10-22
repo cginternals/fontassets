@@ -74,8 +74,9 @@ class App {
                 <div style="font-family: sans-serif">
                     <h4>OpenLL asset server</h4>
                     Example API calls: <br>
-                    <a href="/api/sdf?fontname=Arial&preset=ascii&padding=20">/api/sdf?fontname=Arial&preset=ascii</a> (PNG)<br>
-                    <a href="/api/sdf?fontname=Arial&preset=ascii&padding=20&fnt=1">/api/sdf?fontname=Arial&preset=ascii&fnt=1</a> (FNT)
+                    <a href="/api/sdf?fontname=Arial&preset=ascii&padding=20">/api/sdf?fontname=Arial&preset=ascii&padding=20</a> (PNG)<br>
+                    <a href="/api/sdf?fontname=Arial&preset=ascii&padding=20&fnt=1">/api/sdf?fontname=Arial&preset=ascii&padding=20&fnt=1</a> (FNT)<br>
+                    <a href="/api/available_fonts">/api/available_fonts</a> (List of fonts and styles)
                     <br><br>
                     Available parameters (<pre style="display: inline">llassetgen-cmd atlas --help</pre>):<br>
                     (use the long parameter name as query parameter)<br>
@@ -101,6 +102,9 @@ class App {
 
     -f,--fontname TEXT
         Use the font with the specified name
+        Hint: styles can be specified like this:
+        Roboto:Bold
+        Roboto:Bold:Italic
 
     --fontpath TEXT
         Use the font file at the specified path
@@ -198,7 +202,14 @@ class App {
         })
 
         this.app.get('/api/available_fonts', (req, res) => {
-            // TODO
+            // TODO: make sure to execute in docker...
+            shell.exec(`fc-list --format="%{family}:style=%{style}\n" | sort | uniq`, (code, stdout, stderr) => {
+                if (code !== 0) {
+                    // TODO!!: return 400...
+                    console.log(stdout, stderr)
+                }
+                res.send(`<pre>${stdout}</pre>`)
+            })
         })
     }
 
