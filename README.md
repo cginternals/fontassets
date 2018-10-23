@@ -8,7 +8,7 @@ Test Deployment: http://openll-asset-server.herokuapp.com/
 
 ## Getting started
 * Clone https://github.com/cginternals/openll-asset-generator/compare/develop...bwasty:docker
-  - run `./build_docker` (result: local docker image `llassetgen-cmd`)
+  - change to the directory and run `./build_docker.sh` (result: local docker image `llassetgen-cmd`)
 * `npm install`
 * `npm run dev`
 * open http://localhost:3000/
@@ -17,7 +17,9 @@ Test Deployment: http://openll-asset-server.herokuapp.com/
 * Local test / generic Docker deployment
     * `docker build . -t openll-asset-server`
     * `docker run -e PORT=3001 -p 3001:3001 openll-asset-server`
+    * open http://localhost:3001/
 * Heroku
     * `heroku container:push web --app openll-asset-server`
     * `heroku container:release web --app openll-asset-server`
+    * open https://openll-asset-server.herokuapp.com/
 
