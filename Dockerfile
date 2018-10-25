@@ -16,5 +16,6 @@ RUN npm run build
 # TMP
 RUN mkdir /output
 
+ENV NODE_ENV=production
 EXPOSE $PORT
 CMD [ "npm", "start" ]
