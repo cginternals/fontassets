@@ -1,3 +1,6 @@
+import * as crypto from "crypto";
+import * as fs from 'fs';
+
 import * as express from "express";
 import * as compression from "compression";
 import * as bodyParser from "body-parser";
@@ -42,6 +45,10 @@ interface AssetGeneratorParams {
     /** Generate a font file in the FNT format */
     fnt?: boolean;
 
+    // Non-CLI params
+    nocache?: string,
+    ignorelock?: string,
+
     [key:string]: any,
 }
 
@@ -50,6 +57,17 @@ function cliParam(params: AssetGeneratorParams, key: string, transform?: (val: a
     if (val === undefined) { return '' }
     val = transform ? transform(val) : val;
     return `--${key} ${quote}${params[key]}${quote} `
+}
+
+function sendFontFile(res: any, params: AssetGeneratorParams, directory: string) {
+    const extension = params.fnt ? 'fnt' : 'png'
+    const options: any = {
+        root: process.cwd(),
+    }
+    if (params.fnt) {
+        options.headers = {'Content-Type': 'text/plain'}
+    }
+    res.sendFile(directory + 'atlas.' + extension, options)
 }
 
 class App {
@@ -123,7 +141,13 @@ class App {
     fnt
         Generate a font file in the FNT format
                     </pre>
-                </div>`)
+                </div>
+    nocache
+        Don't return cached files
+
+    ignorelock
+        Ignore internal lock (use if a previous request crashed in the middle)
+    `)
         });
 
         this.app.get('/api/sdf', [
@@ -158,6 +182,8 @@ class App {
                 return true
             }),
             query('fnt').optional(),
+            query('no-cache').optional(),
+            query('ignore-lock').optional(),
         ], (req: any, res: any) => {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
@@ -185,36 +211,50 @@ class App {
             args += cliParam(params, 'dsalgo');
             args += cliParam(params, 'dynamicrange', val => val.replace(",", " "), '');
 
-            // TODO!: work in temp dir & delete afterwards
+            // quickly create filename-compatible hash (sha1 is faster than md5 here)
+            let argHash = crypto.createHash('sha1').update(args).digest('base64').replace(/[/=+]/g, '_');
+            let outputDir = 'output/' + argHash + '/';
+            if (fs.existsSync(outputDir)) {
+                if (fs.existsSync(outputDir + '.locked')) {
+                    if (params.ignorelock === undefined) {
+                        // TODO!: handle better - wait/retry until lock gone?
+                        // TODO!: handle crash...(remaining lockfile)
+                        return res.status(503).send('request with same params in progress - please retry.');
+                    } else {
+                        // continue with generating font file...
+                    }
+                } else {
+                    return sendFontFile(res, params, outputDir);
+                }
+            } else {
+                shell.mkdir(outputDir)
+                // create lock file to avoid concurrent operation on the same directory
+                shell.touch(outputDir + '.locked')
+            }
+
             if (process.env.NODE_ENV === 'production') {
                 // locally (outside docker), we use the `llassetgen-cmd` script in this repository
                 // that wraps a docker call.
                 // In docker (production), the actual llassetgen-cmd is in the root of the container
                 shell.cd('/')
             }
-            shell.exec(`./llassetgen-cmd atlas "output/atlas.png" ${args} --fnt`, (code, stdout, stderr) => {
+            shell.exec(`./llassetgen-cmd atlas "${outputDir}atlas.png" ${args} --fnt`, {silent: true}, (code, stdout, stderr) => {
                 if (code !== 0) {
-                    console.log(stdout, stderr)
-                    return res.status(500).json({ stdout: stdout, stderr: stderr });
+                    console.error(req.url, stdout, stderr)
+                    return res.status(500).send(stdout);
                 }
 
-                const extension = params.fnt ? 'fnt' : 'png'
-                const options: any = {
-                    root: process.cwd(),
-                }
-                if (params.fnt) {
-                    options.headers = {'Content-Type': 'text/plain'}
-                }
-                res.sendFile('output/atlas.' + extension, options)
+                shell.rm(outputDir + '.locked')
+                sendFontFile(res, params, outputDir);
             })
         })
 
         this.app.get('/api/available_fonts', (req, res) => {
-            // TODO: make sure to execute in docker...
-            // TODO!: why is this so slow? (20s)
-            shell.exec(`fc-list --format="%{family}:style=%{style}\n" | sort | uniq`, (code, stdout, stderr) => {
+            // NOTE: won't work properly outside Docker
+            shell.exec(`fc-list --format="%{family}:style=%{style}\n" | sort | uniq`, {silent: true}, (code, stdout, stderr) => {
                 if (code !== 0) {
-                    return res.status(500).json({ stdout: stdout, stderr: stderr });
+                    console.error(req.url, stdout, stderr);
+                    return res.status(500).send(stdout + stderr);
                 }
                 res.send(`<pre>${stdout}</pre>`)
             })
