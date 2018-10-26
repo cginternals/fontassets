@@ -46,8 +46,8 @@ interface AssetGeneratorParams {
     fnt?: boolean;
 
     // Non-CLI params
-    nocache?: string,
-    ignorelock?: string,
+    nocache?: boolean,
+    ignorelock?: boolean,
 
     [key:string]: any,
 }
@@ -56,7 +56,7 @@ function cliParam(params: AssetGeneratorParams, key: string, transform?: (val: a
     let val = params[key];
     if (val === undefined) { return '' }
     val = transform ? transform(val) : val;
-    return `--${key} ${quote}${params[key]}${quote} `
+    return `--${key} ${quote}${val}${quote} `
 }
 
 function sendFontFile(res: any, params: AssetGeneratorParams, directory: string) {
@@ -140,13 +140,14 @@ class App {
 
     fnt
         Generate a font file in the FNT format
-                    </pre>
-                </div>
+
     nocache
         Don't return cached files
 
     ignorelock
         Ignore internal lock (use if a previous request crashed in the middle)
+        </pre>
+    </div>
     `)
         });
 
@@ -182,8 +183,8 @@ class App {
                 return true
             }),
             query('fnt').optional(),
-            query('no-cache').optional(),
-            query('ignore-lock').optional(),
+            query('nocache').optional(),
+            query('ignorelock').optional(),
         ], (req: any, res: any) => {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
@@ -196,6 +197,8 @@ class App {
             params.distfield = params.distfield === 'none' ? undefined : 'parabola';
 
             params.fnt = params.fnt !== undefined;
+            params.nocache = params.nocache !== undefined;
+            params.ignorelock = params.ignorelock !== undefined;
 
             let args = '';
             args += cliParam(params, 'distfield');
@@ -211,14 +214,20 @@ class App {
             args += cliParam(params, 'dsalgo');
             args += cliParam(params, 'dynamicrange', val => val.replace(",", " "), '');
 
+            if (process.env.NODE_ENV === 'production') {
+                // locally (outside docker), we use the `llassetgen-cmd` script in this repository
+                // that wraps a docker call.
+                // In docker (production), the actual llassetgen-cmd is in the root of the container
+                shell.cd('/')
+            }
+
             // quickly create filename-compatible hash (sha1 is faster than md5 here)
             let argHash = crypto.createHash('sha1').update(args).digest('base64').replace(/[/=+]/g, '_');
             let outputDir = 'output/' + argHash + '/';
-            if (fs.existsSync(outputDir)) {
+            if (fs.existsSync(outputDir) && !params.nocache) {
                 if (fs.existsSync(outputDir + '.locked')) {
-                    if (params.ignorelock === undefined) {
+                    if (!params.ignorelock) {
                         // TODO!: handle better - wait/retry until lock gone?
-                        // TODO!: handle crash...(remaining lockfile)
                         return res.status(503).send('request with same params in progress - please retry.');
                     } else {
                         // continue with generating font file...
@@ -232,19 +241,13 @@ class App {
                 shell.touch(outputDir + '.locked')
             }
 
-            if (process.env.NODE_ENV === 'production') {
-                // locally (outside docker), we use the `llassetgen-cmd` script in this repository
-                // that wraps a docker call.
-                // In docker (production), the actual llassetgen-cmd is in the root of the container
-                shell.cd('/')
-            }
             shell.exec(`./llassetgen-cmd atlas "${outputDir}atlas.png" ${args} --fnt`, {silent: true}, (code, stdout, stderr) => {
+                shell.rm(outputDir + '.locked')
                 if (code !== 0) {
                     console.error(req.url, stdout, stderr)
                     return res.status(500).send(stdout);
                 }
 
-                shell.rm(outputDir + '.locked')
                 sendFontFile(res, params, outputDir);
             })
         })
