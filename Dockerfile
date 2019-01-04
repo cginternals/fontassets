@@ -1,4 +1,4 @@
-FROM llassetgen-cmd
+FROM cginternals/openll-asset-generator:develop
 
 RUN apt-get update && apt-get -y install wget gnupg
 RUN wget -qO- https://deb.nodesource.com/setup_8.x | bash -
@@ -12,9 +12,6 @@ COPY package-lock.json .
 RUN npm install
 COPY . .
 RUN npm run build
-
-# TMP
-RUN mkdir /output
 
 ENV NODE_ENV=production
 EXPOSE $PORT
