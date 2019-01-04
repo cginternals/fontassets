@@ -4,7 +4,7 @@
 
 Small web service that wraps the [openll-asset-generator](https://github.com/cginternals/openll-asset-generator) CLI as a REST API. Written in TypeScript, using Express.js.
 
-Test Deployment: http://openll-asset-server.herokuapp.com/
+Beta version: https://fontassets.io/
 
 ## Getting started
 * Clone https://github.com/cginternals/openll-asset-generator/compare/develop...bwasty:docker
@@ -18,8 +18,4 @@ Test Deployment: http://openll-asset-server.herokuapp.com/
     * `docker build . -t openll-asset-server`
     * `docker run -e PORT=3001 -p 3001:3001 openll-asset-server`
     * open http://localhost:3001/
-* Heroku
-    * `heroku container:push web --app openll-asset-server`
-    * `heroku container:release web --app openll-asset-server`
-    * open https://openll-asset-server.herokuapp.com/
 
