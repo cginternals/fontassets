@@ -1,4 +1,4 @@
-# openll-asset-server
+# fontassets
 
 *WORK IN PROGRESS*
 
@@ -7,7 +7,8 @@ Small web service that wraps the [openll-asset-generator](https://github.com/cgi
 Beta version: https://fontassets.io/
 
 ## Getting started
-* Clone https://github.com/cginternals/openll-asset-generator/compare/develop...bwasty:docker
+* Clone [openll-asset-generator](https://github.com/cginternals/openll-asset-generator)
+  - checkout the `develop` branch
   - change to the directory and run `./build_docker.sh` (result: local docker image `llassetgen-cmd`)
 * `npm install`
 * `npm run dev`
